@@ -50,18 +50,13 @@
         create_home: yes
         system: no
 
-    - name: Create hadoop directories
+    - name: Create SSH directory for hadoop user
       file:
-        path: "{{ item }}"
+        path: "/home/{{ hadoop_user }}/.ssh"
         state: directory
         owner: "{{ hadoop_user }}"
         group: "{{ hadoop_user }}"
         mode: "0755"
-      loop:
-        - "{{ hdfs_data_dir }}"
-        - "{{ hdfs_namenode_dir }}"
-        - "{{ hdfs_temp_dir }}"
-        - "/home/{{ hadoop_user }}/.ssh"
 
     - name: Download Hadoop
       get_url:
@@ -77,6 +72,12 @@
         owner: "{{ hadoop_user }}"
         group: "{{ hadoop_user }}"
         creates: "/opt/hadoop-{{ hadoop_version }}"
+    
+    - name: Remove /opt/hadoop directory if it exists
+      file:
+        path: /opt/hadoop
+        state: absent
+      ignore_errors: yes
 
     - name: Create symbolic link for Hadoop
       file:
@@ -85,6 +86,18 @@
         state: link
         owner: "{{ hadoop_user }}"
         group: "{{ hadoop_user }}"
+    
+    - name: Create hadoop directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: "0755"
+      loop:
+        - "{{ hdfs_data_dir }}"
+        - "{{ hdfs_namenode_dir }}"
+        - "{{ hdfs_temp_dir }}"
 
     - name: Set JAVA_HOME in hadoop-env.sh
       lineinfile:
