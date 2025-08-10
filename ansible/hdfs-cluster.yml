@@ -1,0 +1,206 @@
+---
+- name: Install and Configure HDFS Cluster
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    hadoop_version: "3.3.6"
+    java_version: "openjdk-8-jdk"
+    hadoop_home: "/opt/hadoop"
+    hadoop_user: "hadoop"
+    hdfs_data_dir: "/opt/hadoop/data"
+    hdfs_namenode_dir: "/opt/hadoop/namenode"
+    hdfs_temp_dir: "/opt/hadoop/tmp"
+    hadoop_download_url: "https://archive.apache.org/dist/hadoop/common/hadoop-{{ hadoop_version }}/hadoop-{{ hadoop_version }}.tar.gz"
+
+  tasks:
+    - name: Wait for instances to be ready
+      wait_for_connection:
+        delay: 10
+        timeout: 300
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install Java
+      apt:
+        name: "{{ java_version }}"
+        state: present
+
+    - name: Install required packages
+      apt:
+        name:
+          - wget
+          - curl
+          - ssh
+          - rsync
+          - vim
+          - net-tools
+          - htop
+        state: present
+
+    - name: Create hadoop user
+      user:
+        name: "{{ hadoop_user }}"
+        home: "/home/{{ hadoop_user }}"
+        shell: /bin/bash
+        create_home: yes
+        system: no
+
+    - name: Create hadoop directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: "0755"
+      loop:
+        - "{{ hadoop_home }}"
+        - "{{ hdfs_data_dir }}"
+        - "{{ hdfs_namenode_dir }}"
+        - "{{ hdfs_temp_dir }}"
+        - "/home/{{ hadoop_user }}/.ssh"
+
+    - name: Download Hadoop
+      get_url:
+        url: "{{ hadoop_download_url }}"
+        dest: "/tmp/hadoop-{{ hadoop_version }}.tar.gz"
+        mode: "0644"
+
+    - name: Extract Hadoop
+      unarchive:
+        src: "/tmp/hadoop-{{ hadoop_version }}.tar.gz"
+        dest: "/opt"
+        remote_src: yes
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        creates: "/opt/hadoop-{{ hadoop_version }}"
+
+    - name: Create symbolic link for Hadoop
+      file:
+        src: "/opt/hadoop-{{ hadoop_version }}"
+        dest: "{{ hadoop_home }}"
+        state: link
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+
+    - name: Set JAVA_HOME in hadoop-env.sh
+      lineinfile:
+        path: "{{ hadoop_home }}/etc/hadoop/hadoop-env.sh"
+        regexp: "^export JAVA_HOME="
+        line: "export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64"
+        backup: yes
+
+    - name: Configure core-site.xml
+      template:
+        src: core-site.xml.j2
+        dest: "{{ hadoop_home }}/etc/hadoop/core-site.xml"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: "0644"
+
+    - name: Configure hdfs-site.xml
+      template:
+        src: hdfs-site.xml.j2
+        dest: "{{ hadoop_home }}/etc/hadoop/hdfs-site.xml"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: "0644"
+
+    - name: Configure workers file
+      template:
+        src: workers.j2
+        dest: "{{ hadoop_home }}/etc/hadoop/workers"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        mode: "0644"
+
+    - name: Generate SSH keys for hadoop user
+      user:
+        name: "{{ hadoop_user }}"
+        generate_ssh_key: yes
+        ssh_key_type: rsa
+        ssh_key_bits: 2048
+        ssh_key_file: "/home/{{ hadoop_user }}/.ssh/id_rsa"
+
+    - name: Read hadoop user public key
+      slurp:
+        src: "/home/{{ hadoop_user }}/.ssh/id_rsa.pub"
+      register: hadoop_public_key
+
+    - name: Add public key to authorized_keys for all nodes
+      authorized_key:
+        user: "{{ hadoop_user }}"
+        key: "{{ hadoop_public_key.content | b64decode }}"
+        state: present
+
+    - name: Set up Hadoop environment variables
+      blockinfile:
+        path: "/home/{{ hadoop_user }}/.bashrc"
+        block: |
+          export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+          export HADOOP_HOME={{ hadoop_home }}
+          export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
+          export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
+        marker: "# {mark} HADOOP ENVIRONMENT VARIABLES"
+
+    - name: Change ownership of Hadoop installation
+      file:
+        path: "{{ item }}"
+        owner: "{{ hadoop_user }}"
+        group: "{{ hadoop_user }}"
+        recurse: yes
+      loop:
+        - "{{ hadoop_home }}"
+        - "{{ hdfs_data_dir }}"
+        - "{{ hdfs_namenode_dir }}"
+
+- name: Configure Master Node (NameNode)
+  hosts: masters
+  become: yes
+  vars:
+    hadoop_user: "hadoop"
+    hadoop_home: "/opt/hadoop"
+    hdfs_namenode_dir: "/opt/hadoop/namenode"
+
+  tasks:
+    - name: Format NameNode (only on first run)
+      shell: |
+        if [ ! -d "{{ hdfs_namenode_dir }}/current" ]; then
+          {{ hadoop_home }}/bin/hdfs namenode -format -force
+        fi
+      become_user: "{{ hadoop_user }}"
+      environment:
+        JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
+        HADOOP_HOME: "{{ hadoop_home }}"
+
+    - name: Start NameNode
+      shell: "{{ hadoop_home }}/sbin/start-dfs.sh"
+      become_user: "{{ hadoop_user }}"
+      environment:
+        JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
+        HADOOP_HOME: "{{ hadoop_home }}"
+
+- name: Display cluster information
+  hosts: masters
+  become: yes
+  vars:
+    hadoop_user: "hadoop"
+    hadoop_home: "/opt/hadoop"
+
+  tasks:
+    - name: Check HDFS status
+      shell: "{{ hadoop_home }}/bin/hdfs dfsadmin -report"
+      become_user: "{{ hadoop_user }}"
+      environment:
+        JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
+        HADOOP_HOME: "{{ hadoop_home }}"
+      register: hdfs_status
+      ignore_errors: yes
+
+    - name: Display HDFS status
+      debug:
+        msg: "{{ hdfs_status.stdout_lines }}"
