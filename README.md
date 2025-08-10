@@ -85,19 +85,22 @@ hdfs dfsadmin -report
 hdfs-cloud-starter/
 ├── hdfs-deploy.sh
 ├── generate-inventory.sh
-├── providers/gcp/terraform/
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── terraform.tfvars
-└── ansible/
-    ├── hdfs-cluster.yml
-    ├── inventory.yml
-    └── templates/
-        ├── core-site.xml.j2
-        ├── hdfs-site.xml.j2
-        └── workers.j2
-```
+├── providers/
+│   └── gcp/
+│       └── terraform/
+│           ├── main.tf
+│           ├── variables.tf
+│           ├── outputs.tf
+│           └── terraform.tfvars
+├── ansible/
+│   ├── hdfs-cluster.yml
+│   ├── inventory.yml
+│   └── templates/
+│       ├── core-site.xml.j2
+│       ├── hdfs-site.xml.j2
+│       └── workers.j2
+└── examples/
+    └── word
 
 ---
 
@@ -120,3 +123,4 @@ hdfs-cloud-starter/
 ## License
 
 MIT License
+```
