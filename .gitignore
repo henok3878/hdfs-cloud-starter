@@ -1,0 +1,25 @@
+# Python
+.venv
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+tfplan
+terraform.tfplan
+terraform.tfplan.*
+*.tfvars.backup
+*.tfvars.json
+
+# IDE
+.vscode/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Ansible
+*.retry 
