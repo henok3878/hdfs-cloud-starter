@@ -140,7 +140,7 @@ deploy_hdfs() {
     if [ "$success" = false ]; then
         print_error "Cannot connect to instances after $max_retries attempts."
         print_error "Please check:"
-        print_error "1. Firewall rules allow SSH from your IP (146.75.237.25)"
+        print_error "1. Firewall rules allow SSH from your IP"
         print_error "2. Instances are running: gcloud compute instances list"
         print_error "3. Try manual SSH: ssh -o ConnectTimeout=10 ubuntu@[INSTANCE_IP]"
         exit 1
