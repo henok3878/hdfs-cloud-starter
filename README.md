@@ -100,7 +100,7 @@ hdfs-cloud-starter/
 │       ├── hdfs-site.xml.j2
 │       └── workers.j2
 └── examples/
-    └── word
+    └── word-count
 
 ---
 
