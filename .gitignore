@@ -11,6 +11,7 @@ terraform.tfplan
 terraform.tfplan.*
 *.tfvars.backup
 *.tfvars.json
+terraform.tfvars
 
 # IDE
 .vscode/
