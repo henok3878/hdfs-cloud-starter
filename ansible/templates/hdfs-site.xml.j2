@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+    <property>
+        <name>dfs.replication</name>
+        <value>2</value>
+        <description>Default block replication</description>
+    </property>
+    <property>
+        <name>dfs.namenode.name.dir</name>
+        <value>file://{{ hdfs_namenode_dir }}</value>
+        <description>Path on the local filesystem where the NameNode stores metadata</description>
+    </property>
+    <property>
+        <name>dfs.datanode.data.dir</name>
+        <value>file://{{ hdfs_data_dir }}</value>
+        <description>Path on the local filesystem where DataNodes store blocks</description>
+    </property>
+    <property>
+        <name>dfs.namenode.http-address</name>
+        <value>{{ hostvars[groups['masters'][0]]['private_ip'] }}:9870</value>
+        <description>NameNode web UI address</description>
+    </property>
+    <property>
+        <name>dfs.namenode.secondary.http-address</name>
+        <value>{{ hostvars[groups['masters'][0]]['private_ip'] }}:9868</value>
+        <description>Secondary NameNode web UI address</description>
+    </property>
+    <property>
+        <name>dfs.blocksize</name>
+        <value>134217728</value>
+        <description>Default block size (128MB)</description>
+    </property>
+    <property>
+        <name>dfs.permissions.enabled</name>
+        <value>false</value>
+        <description>Disable permissions for easier setup</description>
+    </property>
+</configuration>
