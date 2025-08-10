@@ -118,17 +118,12 @@ deploy_hdfs() {
     for ((i=1; i<=max_retries; i++)); do
         print_status "Connectivity attempt $i/$max_retries..."
         
-        print_status "Testing basic connectivity to $MASTER_IP..."
-        if ping -c 1 -W 5 $MASTER_IP >/dev/null 2>&1; then
-            print_status "Ping successful, testing SSH..."
-            if ansible all -i inventory.yml -m ping --timeout=60 -f 5; then
-                success=true
-                break
-            else
-                print_warning "SSH connection failed, retrying..."
-            fi
+        print_status "Testing SSH connectivity to instances..."
+        if ansible all -i inventory.yml -m ping --timeout=60 -f 5; then
+            success=true
+            break
         else
-            print_warning "Ping failed to $MASTER_IP, instances may still be booting..."
+            print_warning "SSH connection failed, retrying..."
         fi
         
         if [ $i -lt $max_retries ]; then
