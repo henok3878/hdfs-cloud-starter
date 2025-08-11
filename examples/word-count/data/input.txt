@@ -1,0 +1,5 @@
+Hello world
+This is a sample text file
+It is used for testing the Hadoop word count job
+Hadoop is a framework that allows for distributed processing of large data sets
+Word count is a common example of a MapReduce job
