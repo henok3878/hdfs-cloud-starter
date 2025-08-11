@@ -1,5 +1,5 @@
 ---
-- name: Install and Configure HDFS Cluster
+- name: Install andConfigure HDFS Cluster
   hosts: all
   become: yes
   gather_facts: yes
@@ -72,7 +72,7 @@
         owner: "{{ hadoop_user }}"
         group: "{{ hadoop_user }}"
         creates: "/opt/hadoop-{{ hadoop_version }}"
-    
+
     - name: Remove /opt/hadoop directory if it exists
       file:
         path: /opt/hadoop
@@ -84,9 +84,7 @@
         src: "/opt/hadoop-{{ hadoop_version }}"
         dest: "{{ hadoop_home }}"
         state: link
-        owner: "{{ hadoop_user }}"
-        group: "{{ hadoop_user }}"
-    
+
     - name: Create hadoop directories
       file:
         path: "{{ item }}"
@@ -138,16 +136,18 @@
         ssh_key_bits: 2048
         ssh_key_file: "/home/{{ hadoop_user }}/.ssh/id_rsa"
 
-    - name: Read hadoop user public key
-      slurp:
+    - name: Fetch all public keys to controller
+      fetch:
         src: "/home/{{ hadoop_user }}/.ssh/id_rsa.pub"
-      register: hadoop_public_key
+        dest: "/tmp/ssh-keys/{{ inventory_hostname }}.pub"
+        flat: yes
 
-    - name: Add public key to authorized_keys for all nodes
+    - name: Distribute all public keys to all nodes
       authorized_key:
         user: "{{ hadoop_user }}"
-        key: "{{ hadoop_public_key.content | b64decode }}"
+        key: "{{ lookup('file', '/tmp/ssh-keys/' + item + '.pub') }}"
         state: present
+      with_items: "{{ ansible_play_hosts_all }}"
 
     - name: Set Hadoop and Java environment variables globally
       copy:
@@ -167,11 +167,10 @@
         path: "{{ item }}"
         owner: "{{ hadoop_user }}"
         group: "{{ hadoop_user }}"
+        state: directory
         recurse: yes
       loop:
-        - "{{ hadoop_home }}"
-        - "{{ hdfs_data_dir }}"
-        - "{{ hdfs_namenode_dir }}"
+        - "/opt/hadoop-{{ hadoop_version }}"
 
 - name: Configure Master Node (NameNode)
   hosts: masters
@@ -187,17 +186,36 @@
         if [ ! -d "{{ hdfs_namenode_dir }}/current" ]; then
           {{ hadoop_home }}/bin/hdfs namenode -format -force
         fi
+      become: yes
       become_user: "{{ hadoop_user }}"
+      become_method: sudo
       environment:
         JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
         HADOOP_HOME: "{{ hadoop_home }}"
+      vars:
+        ansible_ssh_pipelining: true
 
-    - name: Start NameNode
-      shell: "{{ hadoop_home }}/sbin/start-dfs.sh"
+    - name: Check if HDFS is already running
+      shell: "jps | grep -E '(NameNode|DataNode)'"
+      become: yes
       become_user: "{{ hadoop_user }}"
+      become_method: sudo
+      register: hdfs_running
+      ignore_errors: yes
+      vars:
+        ansible_ssh_pipelining: true
+
+    - name: Start HDFS cluster
+      shell: "{{ hadoop_home }}/sbin/start-dfs.sh"
+      become: yes
+      become_user: "{{ hadoop_user }}"
+      become_method: sudo
       environment:
         JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
         HADOOP_HOME: "{{ hadoop_home }}"
+      when: hdfs_running.rc != 0
+      vars:
+        ansible_ssh_pipelining: true
 
 - name: Display cluster information
   hosts: masters
@@ -209,12 +227,16 @@
   tasks:
     - name: Check HDFS status
       shell: "{{ hadoop_home }}/bin/hdfs dfsadmin -report"
+      become: yes
       become_user: "{{ hadoop_user }}"
+      become_method: sudo
       environment:
         JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
         HADOOP_HOME: "{{ hadoop_home }}"
       register: hdfs_status
       ignore_errors: yes
+      vars:
+        ansible_ssh_pipelining: true
 
     - name: Display HDFS status
       debug:

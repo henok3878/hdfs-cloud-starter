@@ -37,6 +37,8 @@ all:
     ansible_user: ubuntu
     ansible_ssh_private_key_file: ~/.ssh/id_rsa
     ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+    ansible_ssh_pipelining: true
+    ansible_become_method: sudo
     hadoop_version: "3.3.6"
     java_version: "openjdk-8-jdk"
     hadoop_home: "/opt/hadoop"
